@@ -62,7 +62,14 @@ def load_data():
     for col in ["montant_adjuge", "montant_final", "ecart_prix", "taux_depassement"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-    df["a_depassement"] = df.get("taux_depassement", 0) > 0
+    # Corrections de qualité des données
+    # 1. Recalculer ecart_prix et taux_depassement pour éviter les aberrations
+    df["ecart_prix"] = df["montant_final"] - df["montant_adjuge"]
+    # 2. Taux de dépassement : seulement si montant_adjuge > 100$ (éviter les placeholders 0.01$)
+    df["taux_depassement"] = 0.0
+    mask_valid = df["montant_adjuge"] > 100
+    df.loc[mask_valid, "taux_depassement"] = (df.loc[mask_valid, "ecart_prix"] / df.loc[mask_valid, "montant_adjuge"] * 100).clip(-100, 10000)
+    df["a_depassement"] = df["taux_depassement"] > 0
     for col, default in [("est_quebecois", 0), ("region_admin", "Inconnue"), ("est_municipal", ""), ("nb_amendments", 0)]:
         if col not in df.columns:
             df[col] = default
