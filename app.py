@@ -34,19 +34,24 @@ def is_ti(desc):
     d = desc.lower()
     return any(k in d for k in TI_KEYWORDS)
 
-DATA_DIR = Path("data")
+DATA_DIR = Path(".")
 
 @st.cache_data(show_spinner="Chargement des données SEAO…")
 def load_data():
-    # Priorité : Parquet (plus rapide, plus léger) > CSV enrichi > CSV legacy
-    parquet = sorted(DATA_DIR.glob("SEAO_ENRICHI*.parquet"))
-    if parquet:
-        dfs = [pd.read_parquet(f) for f in parquet]
+    # 1. Fichiers csv.gz à la racine (structure GitHub)
+    gz_files = sorted(Path(".").glob("SEAO_ENRICHI*.csv.gz"))
+    if gz_files:
+        dfs = [pd.read_csv(f, compression="gzip", low_memory=False) for f in gz_files]
+    # 2. Parquet dans data/
+    elif sorted(Path("data").glob("SEAO_ENRICHI*.parquet")):
+        dfs = [pd.read_parquet(f) for f in sorted(Path("data").glob("SEAO_ENRICHI*.parquet"))]
+    # 3. CSV dans data/
     else:
-        files = sorted(DATA_DIR.glob("SEAO_ENRICHI*.csv"))
+        files = sorted(Path("data").glob("SEAO_ENRICHI*.csv"))
         if not files:
-            files = sorted(DATA_DIR.glob("SEAO_FINAL_*.csv"))
+            files = sorted(Path("data").glob("SEAO_FINAL_*.csv"))
         if not files:
+            st.error("Aucun fichier de données trouvé.")
             return pd.DataFrame()
         dfs = [pd.read_csv(f, encoding="utf-8-sig", low_memory=False) for f in files]
     df = pd.concat(dfs, ignore_index=True)
